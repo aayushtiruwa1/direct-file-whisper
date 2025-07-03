@@ -3,10 +3,10 @@ import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { WebRTCService, FileTransferMessage } from '@/utils/webrtc';
 import { EncryptionService } from '@/utils/encryption';
 import { useToast } from '@/hooks/use-toast';
 import { Download as DownloadIcon } from 'lucide-react';
+import { Footer } from '@/components/Footer';
 
 export const Download: React.FC = () => {
   const { encodedData } = useParams<{ encodedData: string }>();
@@ -19,17 +19,11 @@ export const Download: React.FC = () => {
 
   useEffect(() => {
     if (encodedData) {
-      // Try to load transfer data from localStorage
-      const data = localStorage.getItem(`transfer_${encodedData}`);
+      // Try to load transfer data from sessionStorage
+      const data = sessionStorage.getItem(`transfer_${encodedData}`);
       if (data) {
         try {
           const parsed = JSON.parse(data);
-          // Check if expired (24 hours)
-          if (Date.now() - parsed.timestamp > 24 * 60 * 60 * 1000) {
-            localStorage.removeItem(`transfer_${encodedData}`);
-            setStatus('Link has expired');
-            return;
-          }
           if (parsed.downloaded) {
             setStatus('File has already been downloaded');
             return;
@@ -92,7 +86,7 @@ export const Download: React.FC = () => {
       setDownloadComplete(true);
 
       // Mark as downloaded and remove from storage
-      localStorage.removeItem(`transfer_${encodedData}`);
+      sessionStorage.removeItem(`transfer_${encodedData}`);
       
       toast({
         title: "Download Complete",
@@ -131,7 +125,7 @@ export const Download: React.FC = () => {
                'Invalid Link'}
             </div>
             <p className="text-muted-foreground">
-              {status.includes('expired') ? 'This share link has expired (24 hour limit).' :
+              {status.includes('expired') ? 'This share link has expired (sender closed their tab).' :
                status.includes('downloaded') ? 'This file has already been downloaded.' :
                'This share link is invalid or not found.'}
             </p>
@@ -216,6 +210,8 @@ export const Download: React.FC = () => {
           </div>
         </div>
       </Card>
+      
+      <Footer />
     </div>
   );
 };

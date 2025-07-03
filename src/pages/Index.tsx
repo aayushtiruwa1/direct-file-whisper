@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FileUploader } from '@/components/FileUploader';
 import { ShareLink } from '@/components/ShareLink';
+import { Footer } from '@/components/Footer';
 
 const Index = () => {
   const [shareUrl, setShareUrl] = useState<string>('');
@@ -30,12 +31,7 @@ const Index = () => {
         </div>
       </div>
       
-      {/* Footer */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-center">
-        <p className="text-xs text-muted-foreground">
-          🔒 Zero-knowledge • 📡 P2P • 🚫 No server storage
-        </p>
-      </div>
+      <Footer />
     </div>
   );
 };

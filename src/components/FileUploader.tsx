@@ -72,13 +72,8 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onShareLink }) => {
         downloaded: false,
       };
 
-      // Store in localStorage for demo (in production, this would be P2P)
-      localStorage.setItem(`transfer_${fileId}`, JSON.stringify(transferData));
-
-      // Set expiration (24 hours)
-      setTimeout(() => {
-        localStorage.removeItem(`transfer_${fileId}`);
-      }, 24 * 60 * 60 * 1000);
+      // Store in sessionStorage (expires when tab closes)
+      sessionStorage.setItem(`transfer_${fileId}`, JSON.stringify(transferData));
 
       // Generate share URL
       const shareUrl = `${window.location.origin}/download/${fileId}`;
