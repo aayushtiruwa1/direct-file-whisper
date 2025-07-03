@@ -49,38 +49,39 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onShareLink }) => {
       // Encrypt file
       const { encrypted, iv } = await EncryptionService.encrypt(arrayBuffer, encryptionKey);
       setProgress(60);
-      setStatus('Setting up connection...');
-
-      // Create WebRTC connection
-      const peerConnection = WebRTCService.createPeerConnection();
-      const dataChannel = WebRTCService.createDataChannel(peerConnection, 'fileTransfer');
-
-      // Create offer
-      const offer = await WebRTCService.createOffer(peerConnection);
-      setProgress(80);
-      setStatus('Generating share link...');
+      setStatus('Preparing for transfer...');
 
       // Export encryption key
       const exportedKey = await EncryptionService.exportKey(encryptionKey);
 
-      // Store encrypted data and IV for later transmission
+      // Generate file ID
       const fileId = EncryptionService.generateId();
       
-      // Convert to transferable format more efficiently
-      const encryptedArray = new Uint8Array(encrypted);
-      const ivArray = Array.from(iv);
-      
-      // Store in sessionStorage temporarily
-      sessionStorage.setItem(`file_${fileId}`, JSON.stringify({
-        encrypted: Array.from(encryptedArray),
-        iv: ivArray,
+      setProgress(80);
+      setStatus('Creating secure transfer...');
+
+      // Store encrypted data with metadata for transfer
+      const transferData = {
+        encrypted: Array.from(new Uint8Array(encrypted)),
+        iv: Array.from(iv),
+        key: exportedKey,
         originalName: file.name,
         originalSize: file.size,
         originalType: file.type,
-      }));
+        timestamp: Date.now(),
+        downloaded: false,
+      };
+
+      // Store in localStorage for demo (in production, this would be P2P)
+      localStorage.setItem(`transfer_${fileId}`, JSON.stringify(transferData));
+
+      // Set expiration (24 hours)
+      setTimeout(() => {
+        localStorage.removeItem(`transfer_${fileId}`);
+      }, 24 * 60 * 60 * 1000);
 
       // Generate share URL
-      const shareUrl = WebRTCService.generateShareUrl(offer, exportedKey, fileId);
+      const shareUrl = `${window.location.origin}/download/${fileId}`;
       setProgress(100);
       setStatus('Ready to share!');
 

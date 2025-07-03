@@ -10,177 +10,105 @@ import { Download as DownloadIcon } from 'lucide-react';
 
 export const Download: React.FC = () => {
   const { encodedData } = useParams<{ encodedData: string }>();
-  const [connectionInfo, setConnectionInfo] = useState<any>(null);
-  const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
-  const [status, setStatus] = useState<string>('Initializing...');
+  const [transferData, setTransferData] = useState<any>(null);
+  const [status, setStatus] = useState<string>('Loading...');
   const [progress, setProgress] = useState(0);
-  const [fileInfo, setFileInfo] = useState<any>(null);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [downloadReady, setDownloadReady] = useState(false);
-  const [receivedData, setReceivedData] = useState<Uint8Array[]>([]);
-  const [encryptionKey, setEncryptionKey] = useState<CryptoKey | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadComplete, setDownloadComplete] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     if (encodedData) {
-      const info = WebRTCService.parseShareUrl(encodedData);
-      if (info) {
-        setConnectionInfo(info);
-        setStatus('Ready to connect');
+      // Try to load transfer data from localStorage
+      const data = localStorage.getItem(`transfer_${encodedData}`);
+      if (data) {
+        try {
+          const parsed = JSON.parse(data);
+          // Check if expired (24 hours)
+          if (Date.now() - parsed.timestamp > 24 * 60 * 60 * 1000) {
+            localStorage.removeItem(`transfer_${encodedData}`);
+            setStatus('Link has expired');
+            return;
+          }
+          if (parsed.downloaded) {
+            setStatus('File has already been downloaded');
+            return;
+          }
+          setTransferData(parsed);
+          setStatus('Ready to download');
+        } catch (error) {
+          setStatus('Invalid transfer data');
+        }
       } else {
-        setStatus('Invalid or expired link');
+        setStatus('Transfer not found or expired');
       }
     }
   }, [encodedData]);
 
-  const initiateConnection = async () => {
-    if (!connectionInfo) return;
+  const startDownload = async () => {
+    if (!transferData || !encodedData) return;
 
-    setIsConnecting(true);
-    setStatus('Connecting to sender...');
+    setIsDownloading(true);
+    setStatus('Preparing download...');
+    setProgress(10);
 
     try {
       // Import encryption key
-      const key = await EncryptionService.importKey(connectionInfo.key);
-      setEncryptionKey(key);
-
-      // Create peer connection
-      const pc = WebRTCService.createPeerConnection();
-      setPeerConnection(pc);
-
-      // Handle data channel
-      pc.ondatachannel = (event) => {
-        const channel = event.channel;
-        
-        channel.onopen = () => {
-          setStatus('Connected! Waiting for file...');
-          toast({
-            title: "Connected",
-            description: "Ready to receive file",
-          });
-        };
-
-        channel.onmessage = async (event) => {
-          try {
-            const message: FileTransferMessage = JSON.parse(event.data);
-            
-            switch (message.type) {
-              case 'file-info':
-                setFileInfo(message.data);
-                setStatus(`Receiving ${message.data.name}...`);
-                setReceivedData(new Array(message.data.totalChunks));
-                break;
-                
-              case 'file-chunk':
-                if (message.chunkIndex !== undefined && message.totalChunks) {
-                  receivedData[message.chunkIndex] = new Uint8Array(message.data);
-                  setProgress((message.chunkIndex + 1) / message.totalChunks * 100);
-                }
-                break;
-                
-              case 'file-complete':
-                setStatus('Processing file...');
-                await processReceivedFile();
-                break;
-            }
-          } catch (error) {
-            console.error('Error processing message:', error);
-          }
-        };
-
-        channel.onerror = (error) => {
-          console.error('Data channel error:', error);
-          setStatus('Connection error');
-        };
-      };
-
-      // Handle connection state
-      pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'failed') {
-          setStatus('Connection failed');
-          setIsConnecting(false);
-        }
-      };
-
-      // Create answer
-      const answer = await WebRTCService.createAnswer(pc, connectionInfo.offer);
-      
-      // In a real implementation, this answer would be sent back to the sender
-      // For this demo, we'll simulate the connection process
-      setStatus('Establishing secure connection...');
-      
-      // Simulate connection establishment
-      setTimeout(() => {
-        setStatus('Connected! Waiting for sender...');
-      }, 2000);
-
-    } catch (error) {
-      console.error('Connection failed:', error);
-      setStatus('Failed to connect');
-      setIsConnecting(false);
-      toast({
-        title: "Connection Failed",
-        description: "Please check the link and try again",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const processReceivedFile = async () => {
-    if (!fileInfo || !encryptionKey || receivedData.length === 0) return;
-
-    try {
-      // Combine all chunks
-      const totalSize = receivedData.reduce((sum, chunk) => sum + (chunk?.length || 0), 0);
-      const combined = new Uint8Array(totalSize);
-      let offset = 0;
-      
-      for (const chunk of receivedData) {
-        if (chunk) {
-          combined.set(chunk, offset);
-          offset += chunk.length;
-        }
-      }
-
+      const encryptionKey = await EncryptionService.importKey(transferData.key);
+      setProgress(30);
       setStatus('Decrypting file...');
+
+      // Reconstruct encrypted data
+      const encryptedArray = new Uint8Array(transferData.encrypted);
+      const ivArray = new Uint8Array(transferData.iv);
       
-      // Note: In a real implementation, the IV would be transmitted separately
-      // For this demo, we'll assume it's prepended to the encrypted data
-      const iv = combined.slice(0, 12);
-      const encryptedData = combined.slice(12);
+      setProgress(60);
 
       // Decrypt the file
-      const decryptedData = await EncryptionService.decrypt(encryptedData.buffer, encryptionKey, iv);
+      const decryptedData = await EncryptionService.decrypt(
+        encryptedArray.buffer, 
+        encryptionKey, 
+        ivArray
+      );
       
+      setProgress(80);
+      setStatus('Preparing download...');
+
       // Create download blob
-      const blob = new Blob([decryptedData], { type: fileInfo.type });
+      const blob = new Blob([decryptedData], { type: transferData.originalType });
       const url = URL.createObjectURL(blob);
       
       // Trigger download
       const a = document.createElement('a');
       a.href = url;
-      a.download = fileInfo.name;
+      a.download = transferData.originalName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
+      setProgress(100);
       setStatus('Download complete!');
-      setDownloadReady(true);
+      setDownloadComplete(true);
+
+      // Mark as downloaded and remove from storage
+      localStorage.removeItem(`transfer_${encodedData}`);
       
       toast({
         title: "Download Complete",
-        description: `${fileInfo.name} has been downloaded successfully`,
+        description: `${transferData.originalName} has been downloaded successfully`,
       });
 
     } catch (error) {
-      console.error('File processing failed:', error);
-      setStatus('Failed to process file');
+      console.error('Download failed:', error);
+      setStatus('Download failed');
       toast({
         title: "Download Failed",
         description: "Could not decrypt or download the file",
         variant: "destructive",
       });
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -192,14 +120,20 @@ export const Download: React.FC = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  if (!encodedData || !connectionInfo) {
+  if (!encodedData || !transferData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="p-8 bg-gradient-card backdrop-blur-sm border-border/50 shadow-card max-w-md w-full mx-4">
           <div className="text-center space-y-4">
-            <div className="text-xl font-bold text-destructive">Invalid Link</div>
+            <div className="text-xl font-bold text-destructive">
+              {status.includes('expired') ? 'Link Expired' : 
+               status.includes('downloaded') ? 'Already Downloaded' : 
+               'Invalid Link'}
+            </div>
             <p className="text-muted-foreground">
-              This share link is invalid or has expired.
+              {status.includes('expired') ? 'This share link has expired (24 hour limit).' :
+               status.includes('downloaded') ? 'This file has already been downloaded.' :
+               'This share link is invalid or not found.'}
             </p>
             <Button onClick={() => window.location.href = '/'} variant="outline">
               Go Home
@@ -233,11 +167,11 @@ export const Download: React.FC = () => {
               Status: <span className="text-foreground font-medium">{status}</span>
             </div>
 
-            {fileInfo && (
+            {transferData && (
               <div className="p-4 bg-muted/30 rounded-lg border border-border/50">
-                <div className="font-medium">{fileInfo.name}</div>
+                <div className="font-medium">{transferData.originalName}</div>
                 <div className="text-sm text-muted-foreground">
-                  {formatFileSize(fileInfo.size)} • {fileInfo.type || 'Unknown type'}
+                  {formatFileSize(transferData.originalSize)} • {transferData.originalType || 'Unknown type'}
                 </div>
               </div>
             )}
@@ -251,17 +185,17 @@ export const Download: React.FC = () => {
               </div>
             )}
 
-            {!isConnecting && !downloadReady && (
+            {!isDownloading && !downloadComplete && transferData && (
               <Button
-                onClick={initiateConnection}
+                onClick={startDownload}
                 className="w-full bg-gradient-primary hover:opacity-90 shadow-glow"
                 size="lg"
               >
-                Start Download
+                Download File
               </Button>
             )}
 
-            {downloadReady && (
+            {downloadComplete && (
               <div className="space-y-4">
                 <div className="text-sm text-green-400 font-medium">
                   ✅ File downloaded successfully!
