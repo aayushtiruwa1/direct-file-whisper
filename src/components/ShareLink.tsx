@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'lucide-react';
-import QRCode from 'qrcode';
 
 interface ShareLinkProps {
   shareUrl: string;
@@ -13,29 +12,7 @@ interface ShareLinkProps {
 
 export const ShareLink: React.FC<ShareLinkProps> = ({ shareUrl, onNewFile }) => {
   const [copied, setCopied] = useState(false);
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const { toast } = useToast();
-
-  // Generate QR code when component mounts
-  useEffect(() => {
-    const generateQRCode = async () => {
-      try {
-        const qrDataUrl = await QRCode.toDataURL(shareUrl, {
-          width: 200,
-          margin: 2,
-          color: {
-            dark: '#0891b2', // Primary color
-            light: '#ffffff'
-          }
-        });
-        setQrCodeDataUrl(qrDataUrl);
-      } catch (error) {
-        console.error('Failed to generate QR code:', error);
-      }
-    };
-
-    generateQRCode();
-  }, [shareUrl]);
 
   const copyToClipboard = async () => {
     try {
@@ -72,7 +49,7 @@ export const ShareLink: React.FC<ShareLinkProps> = ({ shareUrl, onNewFile }) => 
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div className="relative">
             <Input
               value={shareUrl}
@@ -89,30 +66,10 @@ export const ShareLink: React.FC<ShareLinkProps> = ({ shareUrl, onNewFile }) => 
             </Button>
           </div>
 
-          {/* QR Code Section */}
-          <div className="flex flex-col items-center space-y-3">
-            <div className="text-sm font-medium text-foreground">
-              Scan QR Code to Download
-            </div>
-            {qrCodeDataUrl ? (
-              <div className="p-4 bg-white rounded-lg shadow-card">
-                <img 
-                  src={qrCodeDataUrl} 
-                  alt="QR Code for file download" 
-                  className="w-48 h-48"
-                />
-              </div>
-            ) : (
-              <div className="w-48 h-48 bg-muted/50 rounded-lg flex items-center justify-center">
-                <div className="text-sm text-muted-foreground">Generating QR...</div>
-              </div>
-            )}
-          </div>
-
-          <div className="text-xs text-muted-foreground space-y-1 text-center">
+          <div className="text-xs text-muted-foreground space-y-1">
             <div>🔒 End-to-end encrypted</div>
             <div>📡 Direct peer-to-peer transfer</div>
-            <div>⏰ Link expires when you close this tab</div>
+            <div>⏰ Link expires after download or 24 hours</div>
           </div>
         </div>
 
