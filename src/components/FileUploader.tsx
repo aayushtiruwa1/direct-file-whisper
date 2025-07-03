@@ -66,10 +66,14 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onShareLink }) => {
       // Store encrypted data and IV for later transmission
       const fileId = EncryptionService.generateId();
       
-      // Store in sessionStorage temporarily (in a real app, this would be in memory)
+      // Convert to transferable format more efficiently
+      const encryptedArray = new Uint8Array(encrypted);
+      const ivArray = Array.from(iv);
+      
+      // Store in sessionStorage temporarily
       sessionStorage.setItem(`file_${fileId}`, JSON.stringify({
-        encrypted: Array.from(new Uint8Array(encrypted)),
-        iv: Array.from(iv),
+        encrypted: Array.from(encryptedArray),
+        iv: ivArray,
         originalName: file.name,
         originalSize: file.size,
         originalType: file.type,
