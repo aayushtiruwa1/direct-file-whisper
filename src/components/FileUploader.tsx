@@ -87,10 +87,27 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onShareLink }) => {
         originalType: file.type,
         timestamp: Date.now(),
         downloaded: false,
+        senderTabId: Date.now() + Math.random(), // Unique tab identifier
       };
 
-      // Store in sessionStorage (expires when tab closes)
-      sessionStorage.setItem(`transfer_${fileId}`, JSON.stringify(transferData));
+      // Store in localStorage and track sender tab
+      localStorage.setItem(`transfer_${fileId}`, JSON.stringify(transferData));
+      localStorage.setItem(`sender_${fileId}`, 'active');
+      
+      // Set up heartbeat to indicate sender tab is still active
+      const heartbeat = setInterval(() => {
+        localStorage.setItem(`sender_${fileId}`, 'active');
+      }, 5000);
+      
+      // Clean up when tab closes
+      const cleanup = () => {
+        localStorage.removeItem(`transfer_${fileId}`);
+        localStorage.removeItem(`sender_${fileId}`);
+        clearInterval(heartbeat);
+      };
+      
+      window.addEventListener('beforeunload', cleanup);
+      window.addEventListener('unload', cleanup);
 
       // Generate share URL
       const shareUrl = `${window.location.origin}/download/${fileId}`;

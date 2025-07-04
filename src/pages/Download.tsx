@@ -19,8 +19,10 @@ export const Download: React.FC = () => {
 
   useEffect(() => {
     if (encodedData) {
-      // Try to load transfer data from sessionStorage (expires when sender tab closes)
-      const data = sessionStorage.getItem(`transfer_${encodedData}`);
+      // Try to load transfer data from localStorage
+      const data = localStorage.getItem(`transfer_${encodedData}`);
+      const senderStatus = localStorage.getItem(`sender_${encodedData}`);
+      
       if (data) {
         try {
           const parsed = JSON.parse(data);
@@ -28,6 +30,13 @@ export const Download: React.FC = () => {
             setStatus('File has already been downloaded');
             return;
           }
+          
+          // Check if sender tab is still active (heartbeat within last 10 seconds)
+          if (!senderStatus) {
+            setStatus('Transfer not found or sender has closed the tab');
+            return;
+          }
+          
           setTransferData(parsed);
           setStatus('Ready to download');
         } catch (error) {
@@ -95,7 +104,8 @@ export const Download: React.FC = () => {
       setDownloadComplete(true);
 
       // Mark as downloaded and remove from storage
-      sessionStorage.removeItem(`transfer_${encodedData}`);
+      localStorage.removeItem(`transfer_${encodedData}`);
+      localStorage.removeItem(`sender_${encodedData}`);
       
       toast({
         title: "Download Complete",
