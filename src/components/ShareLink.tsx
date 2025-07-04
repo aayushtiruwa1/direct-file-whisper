@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Link } from 'lucide-react';
+import { Link, QrCode } from 'lucide-react';
+import QRCode from 'qrcode';
 
 interface ShareLinkProps {
   shareUrl: string;
@@ -12,7 +13,28 @@ interface ShareLinkProps {
 
 export const ShareLink: React.FC<ShareLinkProps> = ({ shareUrl, onNewFile }) => {
   const [copied, setCopied] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+  const [showQr, setShowQr] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const generateQR = async () => {
+      try {
+        const qrUrl = await QRCode.toDataURL(shareUrl, {
+          width: 256,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
+        });
+        setQrCodeUrl(qrUrl);
+      } catch (error) {
+        console.error('Failed to generate QR code:', error);
+      }
+    };
+    generateQR();
+  }, [shareUrl]);
 
   const copyToClipboard = async () => {
     try {
@@ -66,10 +88,35 @@ export const ShareLink: React.FC<ShareLinkProps> = ({ shareUrl, onNewFile }) => 
             </Button>
           </div>
 
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setShowQr(!showQr)}
+              variant="outline"
+              size="sm"
+              className="flex-1"
+            >
+              <QrCode className="w-4 h-4 mr-2" />
+              {showQr ? 'Hide QR' : 'Show QR'}
+            </Button>
+          </div>
+
+          {showQr && qrCodeUrl && (
+            <div className="p-4 bg-white rounded-lg border border-border/50">
+              <img 
+                src={qrCodeUrl} 
+                alt="QR Code for share link" 
+                className="w-full max-w-48 mx-auto"
+              />
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                Scan to access the download link
+              </p>
+            </div>
+          )}
+
           <div className="text-xs text-muted-foreground space-y-1">
             <div>🔒 End-to-end encrypted</div>
             <div>📡 Direct peer-to-peer transfer</div>
-            <div>⏰ Link expires after download or 24 hours</div>
+            <div>⏰ Link expires when sender closes tab</div>
           </div>
         </div>
 

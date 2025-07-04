@@ -19,17 +19,11 @@ export const Download: React.FC = () => {
 
   useEffect(() => {
     if (encodedData) {
-      // Try to load transfer data from localStorage
-      const data = localStorage.getItem(`transfer_${encodedData}`);
+      // Try to load transfer data from sessionStorage (expires when sender tab closes)
+      const data = sessionStorage.getItem(`transfer_${encodedData}`);
       if (data) {
         try {
           const parsed = JSON.parse(data);
-          // Check if expired (24 hours)
-          if (Date.now() - parsed.timestamp > 24 * 60 * 60 * 1000) {
-            localStorage.removeItem(`transfer_${encodedData}`);
-            setStatus('Link has expired');
-            return;
-          }
           if (parsed.downloaded) {
             setStatus('File has already been downloaded');
             return;
@@ -40,7 +34,7 @@ export const Download: React.FC = () => {
           setStatus('Invalid transfer data');
         }
       } else {
-        setStatus('Transfer not found or expired');
+        setStatus('Transfer not found or sender has closed the tab');
       }
     }
   }, [encodedData]);
@@ -92,7 +86,7 @@ export const Download: React.FC = () => {
       setDownloadComplete(true);
 
       // Mark as downloaded and remove from storage
-      localStorage.removeItem(`transfer_${encodedData}`);
+      sessionStorage.removeItem(`transfer_${encodedData}`);
       
       toast({
         title: "Download Complete",
@@ -131,8 +125,8 @@ export const Download: React.FC = () => {
                'Invalid Link'}
             </div>
             <p className="text-muted-foreground">
-              {status.includes('expired') ? 'This share link has expired (24 hour limit).' :
-               status.includes('downloaded') ? 'This file has already been downloaded.' :
+              {status.includes('downloaded') ? 'This file has already been downloaded.' :
+               status.includes('sender has closed') ? 'The sender has closed their tab.' :
                'This share link is invalid or not found.'}
             </p>
             <Button onClick={() => window.location.href = '/'} variant="outline">
