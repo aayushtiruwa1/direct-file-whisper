@@ -61,9 +61,26 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onShareLink }) => {
       setStatus('Creating secure transfer...');
 
       // Store encrypted data with metadata for transfer
+      // Convert encrypted data to base64 for storage using chunked approach for large files
+      const encryptedArray = new Uint8Array(encrypted);
+      const ivArray = new Uint8Array(iv);
+      
+      let encryptedBase64 = '';
+      const chunkSize = 8192; // Process in 8KB chunks
+      for (let i = 0; i < encryptedArray.length; i += chunkSize) {
+        const chunk = encryptedArray.slice(i, i + chunkSize);
+        encryptedBase64 += btoa(String.fromCharCode(...chunk));
+      }
+      
+      let ivBase64 = '';
+      for (let i = 0; i < ivArray.length; i += chunkSize) {
+        const chunk = ivArray.slice(i, i + chunkSize);
+        ivBase64 += btoa(String.fromCharCode(...chunk));
+      }
+      
       const transferData = {
-        encrypted: Array.from(new Uint8Array(encrypted)),
-        iv: Array.from(iv),
+        encrypted: encryptedBase64,
+        iv: ivBase64,
         key: exportedKey,
         originalName: file.name,
         originalSize: file.size,

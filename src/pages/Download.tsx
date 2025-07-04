@@ -52,9 +52,18 @@ export const Download: React.FC = () => {
       setProgress(30);
       setStatus('Decrypting file...');
 
-      // Reconstruct encrypted data
-      const encryptedArray = new Uint8Array(transferData.encrypted);
-      const ivArray = new Uint8Array(transferData.iv);
+      // Reconstruct encrypted data from base64 using chunked approach
+      const decodeBase64ToUint8Array = (base64String: string): Uint8Array => {
+        const binaryString = atob(base64String);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+      };
+      
+      const encryptedArray = decodeBase64ToUint8Array(transferData.encrypted);
+      const ivArray = decodeBase64ToUint8Array(transferData.iv);
       
       setProgress(60);
 
